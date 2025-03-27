@@ -1,0 +1,144 @@
+# NestJS: Controllers - Riassunto
+
+I **Controllers** in NestJS sono responsabili di gestire le richieste in arrivo e di inviare le risposte al client.
+
+## Funzione:
+
+* Gestiscono richieste specifiche per l'applicazione.
+* Il meccanismo di routing determina quale controller gestirà ogni richiesta.
+* Spesso un controller ha più route, ognuna con un'azione diversa.
+
+## Creazione di un Controller:
+
+* Si utilizzano **classi** e **decoratori**.
+* I decoratori collegano le classi con i metadati necessari per creare una mappa di routing.
+* Per creare rapidamente un controller CRUD con validazione integrata, si può usare il generatore CLI: `nest g resource [nome]`.
+
+## Routing:
+
+* Si usa il decoratore `@Controller()` per definire un controller base.
+* `@Controller('cats')` definisce un prefisso di percorso `/cats` per tutte le route all'interno del controller. Questo riduce la ripetizione di codice.
+* Per creare un controller tramite CLI: `$ nest g controller [nome]`.
+* I decoratori dei metodi HTTP (`@Get()`, `@Post()`, ecc.) definiscono gli endpoint specifici.
+* Il percorso della route è la combinazione del prefisso del controller (opzionale) e del percorso specificato nel decoratore del metodo. Ad esempio, `@Get('breed')` in un controller con prefisso `cats` risulterà in `GET /cats/breed`.
+* Il nome del metodo all'interno del controller è arbitrario e non ha un significato specifico per Nest.
+* **Gestione delle Risposte:**
+    * **Standard (raccomandato):**
+        * Gli oggetti o array JavaScript restituiti vengono automaticamente serializzati in JSON.
+        * I tipi primitivi (stringhe, numeri, booleani) vengono inviati direttamente.
+        * Il codice di stato predefinito è 200 (eccetto per POST che è 201).
+        * Si può modificare il codice di stato con il decoratore `@HttpCode(...)`.
+    * **Specifico della Libreria:**
+        * Si può usare l'oggetto di risposta specifico della libreria (es. Express) iniettandolo con il decoratore `@Res()` nel metodo del handler.
+        * Permette di usare i metodi nativi di gestione della risposta della libreria (es. `response.status(200).send()`).
+        * **Attenzione:** Se si usano sia `@Res()` che `@Next()`, la gestione standard viene disabilitata per quella route. Per usarle entrambe (es. per impostare cookie/header e lasciare il resto al framework), impostare l'opzione `passthrough: true` in `@Res()`.
+
+## Oggetto Request:
+
+* I handler spesso hanno bisogno di accedere ai dettagli della richiesta del client.
+* Nest fornisce accesso all'oggetto request della piattaforma sottostante (Express di default).
+* Si inietta l'oggetto request usando il decoratore `@Req()` nella firma del handler.
+* L'oggetto request contiene proprietà per query string, parametri, header HTTP e body.
+* In molti casi, si usano decoratori dedicati come `@Body()` o `@Query()`.
+* Decoratori utili:
+    * `@Request()`, `@Req()`: `req`
+    * `@Response()`, `@Res()`: `res`
+    * `@Next()`: `next`
+    * `@Session()`: `req.session`
+    * `@Param(key?: string)`: `req.params / req.params[key]`
+    * `@Body(key?: string)`: `req.body / req.body[key]`
+    * `@Query(key?: string)`: `req.query / req.query[key]`
+    * `@Headers(name?: string)`: `req.headers / req.headers[name]`
+    * `@Ip()`: `req.ip`
+    * `@HostParam()`: `req.hosts`
+* **Nota:** L'uso di `@Res()` o `@Response()` mette Nest in modalità "Library-specific" per quel handler, rendendo responsabile la gestione della risposta. È necessario chiamare un metodo sulla risposta (es. `res.json()`, `res.send()`) altrimenti il server HTTP si bloccherà.
+
+## Risorse:
+
+* Si possono definire endpoint per diverse azioni (es. GET per ottenere, POST per creare).
+* Nest fornisce decoratori per tutti i metodi HTTP standard: `@Get()`, `@Post()`, `@Put()`, `@Delete()`, `@Patch()`, `@Options()`, `@Head()`, e `@All()` per tutti.
+
+## Wildcard nelle Route:
+
+* Supporto per route basate su pattern.
+* L'asterisco (`*`) può essere usato come wildcard alla fine di un percorso per corrispondere a qualsiasi combinazione di caratteri. Es. `abcd/*`.
+* I trattini (`-`) e i punti (`.`) vengono interpretati letteralmente.
+* Con Express v5, per far funzionare i wildcard è necessario usare wildcard nominati (es. `abcd/*splat`). Nest fornisce una compatibilità con l'asterisco.
+* I wildcard nel mezzo di una route richiedono wildcard nominati in Express e non sono supportati in Fastify.
+
+## Codice di Stato:
+
+* Il codice di stato predefinito è 200 (o 201 per POST).
+* Si può modificare con `@HttpCode(codice)`.
+* Per codici di stato dinamici, usare l'oggetto di risposta specifico della libreria o lanciare un'eccezione.
+
+## Header di Risposta:
+
+* Si possono specificare header personalizzati con il decoratore `@Header('Nome', 'Valore')` o usando l'oggetto di risposta specifico della libreria (es. `res.header()`).
+
+## Redirezione:
+
+* Si può reindirizzare la risposta con il decoratore `@Redirect(url, statusCode?)`. Il codice di stato predefinito è 302.
+* Per determinare dinamicamente URL o codice di stato, si può restituire un oggetto che implementa l'interfaccia `HttpRedirectResponse`.
+
+## Parametri di Route:
+
+* Per accettare dati dinamici, si usano token di parametri nel percorso della route (es. `/cats/:id`).
+* I parametri di route si accedono con il decoratore `@Param()` nella firma del metodo.
+* `@Param()` senza argomenti rende accessibili tutti i parametri come proprietà di un oggetto.
+* Si può passare un token specifico a `@Param()` per accedere direttamente a quel parametro.
+* **Nota:** Le route con parametri dovrebbero essere dichiarate dopo i percorsi statici.
+
+## Routing per Sub-dominio:
+
+* Il decoratore `@Controller()` può accettare l'opzione `host` per richiedere che l'host HTTP corrisponda a un valore specifico.
+* I token possono essere usati anche nell'opzione `host` per catturare valori dinamici.
+* I parametri host si accedono con il decoratore `@HostParam()`.
+* **Attenzione:** Fastify non supporta router annidati, quindi per il routing per sub-dominio si raccomanda l'uso dell'adapter Express.
+
+## Condivisione dello Stato:
+
+* In Nest, quasi tutto è condiviso tra le richieste (es. connessioni al database, servizi singleton).
+* L'uso di istanze singleton è sicuro in Node.js.
+* Ci sono casi specifici in cui potrebbero essere necessari cicli di vita basati sulla richiesta (es. caching per richiesta).
+
+## Asincronicità:
+
+* Nest supporta pienamente le funzioni `async`.
+* Ogni funzione `async` deve restituire una `Promise`.
+* I handler possono anche restituire flussi RxJS `Observable`. Nest si occuperà della sottoscrizione e della risoluzione.
+
+## Payload delle Richieste:
+
+* Per ricevere dati dal client nella richiesta POST, si usa il decoratore `@Body()`.
+* **DTO (Data Transfer Object):** Si raccomanda di definire uno schema DTO usando classi (invece di interfacce TypeScript) perché le classi rimangono nel JavaScript compilato e sono necessarie per funzionalità come i Pipes.
+* **Validazione:** Il `ValidationPipe` può filtrare le proprietà non ammesse nel handler.
+
+## Parametri di Query:
+
+* Si usano i decoratori `@Query('nome')` per estrarre i parametri dalla query string.
+* Per gestire query complesse (oggetti annidati, array), potrebbe essere necessario configurare l'adapter HTTP (Express o Fastify) con un parser di query appropriato (es. `qs`).
+
+## Gestione degli Errori:
+
+* C'è un capitolo separato sulla gestione delle eccezioni.
+
+## Esempio di Controller Completo:
+
+* Viene fornito un esempio che mostra l'uso di diversi decoratori (`@Post`, `@Get`, `@Put`, `@Delete`, `@Query`, `@Param`, `@Body`).
+
+## Avvio e Registrazione:
+
+* Un controller deve essere parte di un **modulo**.
+* I controller vengono dichiarati nell'array `controllers` del decoratore `@Module()`.
+
+## Approccio Specifico della Libreria:
+
+* Si può usare l'oggetto di risposta specifico della libreria (es. Express) con `@Res()`.
+* Offre maggiore flessibilità ma rende il codice dipendente dalla piattaforma e può rendere più difficili i test.
+* Si perde la compatibilità con alcune funzionalità di Nest (es. Interceptors, `@HttpCode`, `@Header`).
+* Si può usare l'opzione `passthrough: true` in `@Res()` per interagire con l'oggetto nativo mantenendo la gestione standard del framework.
+
+## Supporto:
+
+* Nest è un progetto open source MIT-licensed.

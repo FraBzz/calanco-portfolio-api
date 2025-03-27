@@ -1,0 +1,216 @@
+# NestJS: Modules - Introduzione
+
+Un **modulo** è una classe annotata con il decoratore `@Module()`. Questo decoratore fornisce metadati che Nest utilizza per organizzare e gestire in modo efficiente la struttura dell'applicazione.
+
+Ogni applicazione Nest ha almeno un modulo, il modulo radice, che funge da punto di partenza per Nest nella costruzione del grafico dell'applicazione. Questo grafico è una struttura interna che Nest utilizza per risolvere le relazioni e le dipendenze tra moduli e providers.
+
+Sebbene piccole applicazioni possano avere solo un modulo radice, questo generalmente non è il caso. I moduli sono altamente raccomandati come un modo efficace per organizzare i tuoi componenti. Per la maggior parte delle applicazioni, probabilmente avrai più moduli, ognuno dei quali incapsula un insieme di funzionalità strettamente correlate.
+
+Il decoratore `@Module()` accetta un singolo oggetto con proprietà che descrivono il modulo:
+
+* **providers**: i providers che verranno istanziati dall'iniettore Nest e che possono essere condivisi almeno all'interno di questo modulo
+* **controllers**: l'insieme di controllers definiti in questo modulo che devono essere istanziati
+* **imports**: l'elenco dei moduli importati che esportano i providers richiesti in questo modulo
+* **exports**: il sottoinsieme di providers forniti da questo modulo e che dovrebbero essere disponibili in altri moduli che importano questo modulo. Puoi usare sia il provider stesso che solo il suo token (valore provide)
+
+Il modulo incapsula i providers per impostazione predefinita, il che significa che puoi iniettare solo i providers che fanno parte del modulo corrente o che sono esplicitamente esportati da altri moduli importati. I providers esportati da un modulo fungono essenzialmente da interfaccia pubblica o API del modulo.
+
+## Feature Modules
+
+Nell'esempio precedente, `CatsController` e `CatsService` sono strettamente correlati e servono lo stesso dominio applicativo. Ha senso raggrupparli in un modulo funzionale (feature module). Un modulo funzionale organizza il codice rilevante per una specifica funzionalità, aiutando a mantenere confini chiari e una migliore organizzazione. Questo è particolarmente importante man mano che l'applicazione o il team crescono, e si allinea ai principi SOLID.
+
+Successivamente, creeremo il `CatsModule` per dimostrare come raggruppare il controller e il servizio.
+
+```typescript
+// cats/cats.module.ts
+import { Module } from '@nestjs/common';
+import { CatsController } from './cats.controller';
+import { CatsService } from './cats.service';
+
+@Module({
+  controllers: [CatsController],
+  providers: [CatsService],
+})
+export class CatsModule {}
+```
+
+* Per creare un modulo tramite CLI: `$ nest g module cats command`.
+* Sopra, abbiamo definito il `CatsModule` nel file `cats.module.ts` e spostato tutto ciò che riguarda questo modulo nella directory `cats`. L'ultima cosa che dobbiamo fare è importare questo modulo nel modulo radice (l'`AppModule`, definito nel file `app.module.ts`).
+
+```typescript
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { CatsModule } from './cats/cats.module';
+
+@Module({
+  imports: [CatsModule],
+})
+export class AppModule {}
+```
+
+Ecco come appare ora la nostra struttura delle directory:
+
+```
+src
+cats
+├── dto
+│   └── create-cat.dto.ts
+├── interfaces
+│   └── cat.interface.ts
+├── cats.controller.ts
+├── cats.module.ts
+└── cats.service.ts
+app.module.ts
+main.ts
+```
+
+## Shared Modules
+
+In Nest, i moduli sono singleton per impostazione predefinita, e quindi puoi condividere la stessa istanza di qualsiasi provider tra più moduli senza sforzo.
+
+Ogni modulo è automaticamente un modulo condiviso. Una volta creato, può essere riutilizzato da qualsiasi modulo. Immaginiamo di voler condividere un'istanza di `CatsService` tra diversi altri moduli. Per fare ciò, dobbiamo prima esportare il provider `CatsService` aggiungendolo all'array `exports` del modulo, come mostrato di seguito:
+
+```typescript
+// cats.module.ts
+import { Module } from '@nestjs/common';
+import { CatsController } from './cats.controller';
+import { CatsService } from './cats.service';
+
+@Module({
+  controllers: [CatsController],
+  providers: [CatsService],
+  exports: [CatsService]
+})
+export class CatsModule {}
+```
+
+Ora, qualsiasi modulo che importa il `CatsModule` ha accesso al `CatsService` e condividerà la stessa istanza con tutti gli altri moduli che lo importano.
+
+Se dovessimo registrare direttamente il `CatsService` in ogni modulo che lo richiede, funzionerebbe, ma risulterebbe in ogni modulo che ottiene la propria istanza separata di `CatsService`. Questo può portare a un maggiore utilizzo della memoria poiché vengono create più istanze dello stesso servizio, e potrebbe anche causare comportamenti inaspettati, come l'incoerenza dello stato se il servizio mantiene uno stato interno.
+
+Incapsulando il `CatsService` all'interno di un modulo, come il `CatsModule`, ed esportandolo, garantiamo che la stessa istanza di `CatsService` venga riutilizzata in tutti i moduli che importano `CatsModule`. Questo non solo riduce il consumo di memoria, ma porta anche a un comportamento più prevedibile, poiché tutti i moduli condividono la stessa istanza, rendendo più facile la gestione di stati o risorse condivise. Questo è uno dei vantaggi chiave della modularità e dell'iniezione di dipendenze in framework come NestJS, che consente ai servizi di essere condivisi in modo efficiente in tutta l'applicazione.
+
+## Module Re-exporting
+
+Come visto sopra, i moduli possono esportare i loro providers interni. Inoltre, possono riesportare i moduli che importano. Nell'esempio seguente, il `CommonModule` viene sia importato che esportato dal `CoreModule`, rendendolo disponibile per altri moduli che importano quest'ultimo.
+
+```typescript
+@Module({
+  imports: [CommonModule],
+  exports: [CommonModule],
+})
+export class CoreModule {}
+```
+
+## Dependency Injection
+
+Una classe modulo può anche iniettare providers (ad esempio, per scopi di configurazione):
+
+```typescript
+// cats.module.ts
+import { Module } from '@nestjs/common';
+import { CatsController } from './cats.controller';
+import { CatsService } from './cats.service';
+
+@Module({
+  controllers: [CatsController],
+  providers: [CatsService],
+})
+export class CatsModule {
+  constructor(private catsService: CatsService) {}
+}
+```
+
+Tuttavia, le classi modulo stesse non possono essere iniettate come providers a causa di dipendenze circolari.
+
+## Global Modules
+
+Se devi importare lo stesso insieme di moduli ovunque, può diventare noioso. A differenza di Angular, in Nest, i providers sono incapsulati all'interno dello scope del modulo. Non puoi utilizzare i providers di un modulo altrove senza prima importare il modulo che li incapsula.
+
+Quando vuoi fornire un insieme di providers che dovrebbero essere disponibili ovunque out-of-the-box (ad esempio, helper, connessioni al database, ecc.), rendi il modulo globale con il decoratore `@Global()`.
+
+```typescript
+import { Module, Global } from '@nestjs/common';
+import { CatsController } from './cats.controller';
+import { CatsService } from './cats.service';
+
+@Global()
+@Module({
+  controllers: [CatsController],
+  providers: [CatsService],
+  exports: [CatsService],
+})
+export class CatsModule {}
+```
+
+Il decoratore `@Global()` rende il modulo a scope globale. I moduli globali dovrebbero essere registrati solo una volta, generalmente dal modulo radice o core. Nell'esempio precedente, il provider `CatsService` sarà onnipresente e i moduli che desiderano iniettare il servizio non avranno bisogno di importare `CatsModule` nel loro array `imports`.
+
+**Nota:** Rendere tutto globale non è raccomandato come pratica di progettazione. Sebbene i moduli globali possano aiutare a ridurre il boilerplate, è generalmente meglio utilizzare l'array `imports` per rendere l'API di un modulo disponibile ad altri moduli in modo controllato e chiaro. Questo approccio fornisce una migliore struttura e manutenibilità, garantendo che solo le parti necessarie del modulo vengano condivise con gli altri, evitando un accoppiamento non necessario tra parti non correlate dell'applicazione.
+
+```typescript
+import { Module, DynamicModule } from '@nestjs/common';
+import { createDatabaseProviders } from './database.providers';
+import { Connection } from './connection.provider';
+
+@Module({
+  providers: [Connection],
+  exports: [Connection],
+})
+export class DatabaseModule {
+  static forRoot(entities = [], options?): DynamicModule {
+    const providers = createDatabaseProviders(options, entities);
+    return {
+      module: DatabaseModule,
+      providers: providers,
+      exports: providers,
+    };
+  }
+}
+```
+
+* Il metodo `forRoot()` può restituire un modulo dinamico in modo sincrono o asincrono (ad esempio, tramite una Promise).
+* Questo modulo definisce il provider `Connection` per impostazione predefinita (nei metadati del decoratore `@Module()`), ma inoltre - a seconda degli oggetti `entities` e `options` passati al metodo `forRoot()` - espone una raccolta di providers, ad esempio, i repository. Nota che le proprietà restituite dal modulo dinamico estendono (anziché sovrascrivere) i metadati del modulo base definiti nel decoratore `@Module()`. È così che sia il provider `Connection` dichiarato staticamente che i providers dei repository generati dinamicamente vengono esportati dal modulo.
+
+Se vuoi registrare un modulo dinamico nello scope globale, imposta la proprietà `global` su `true`.
+
+```JSON
+{
+  "global": true,
+  "module": DatabaseModule,
+  "providers": providers,
+  "exports": providers
+}
+```
+
+**Avvertenza:** Come menzionato in precedenza, rendere tutto globale non è una buona decisione di progettazione.
+
+Il `DatabaseModule` può essere importato e configurato nel seguente modo:
+
+```typescript
+import { Module } from '@nestjs/common';
+import { DatabaseModule } from './database/database.module';
+import { User } from './users/entities/user.entity';
+
+@Module({
+  imports: [DatabaseModule.forRoot([User])],
+})
+export class AppModule {}
+```
+
+Se vuoi a tua volta riesportare un modulo dinamico, puoi omettere la chiamata al metodo `forRoot()` nell'array `exports`:
+
+```typescript
+import { Module } from '@nestjs/common';
+import { DatabaseModule } from './database/database.module';
+import { User } from './users/entities/user.entity';
+
+@Module({
+  imports: [DatabaseModule.forRoot([User])],
+  exports: [DatabaseModule],
+})
+export class AppModule {}
+```
+
+Il capitolo sui moduli dinamici tratta questo argomento in modo più dettagliato e include un esempio funzionante.
+
+**Suggerimento:** Scopri come costruire moduli dinamici altamente personalizzabili con l'uso di `ConfigurableModuleBuilder` qui in questo capitolo.

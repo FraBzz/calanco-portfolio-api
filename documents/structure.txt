@@ -1,0 +1,23 @@
+src/
+├── main.ts
+├── app.module.ts
+├── common/                # Helpers riutilizzabili (pipes, filters, guards, interceptors)
+│   ├── guards/
+│   ├── filters/
+│   └── decorators/
+├── config/               # Configurazioni globali (env, database, ecc.)
+│   └── config.module.ts
+├── core/                 # Moduli core (auth, logger, database, ecc.)
+│   ├── auth/
+│   └── database/
+├── modules/              # Tutti i tuoi domini (moduli veri e propri)
+│   ├── users/
+│   │   ├── users.controller.ts
+│   │   ├── users.service.ts
+│   │   ├── users.module.ts
+│   │   └── dto/
+│   ├── products/
+│   │   └── ...
+├── interfaces/           # Interfacce e tipi globali
+├── utils/                # Funzioni generiche e helper
+└── tests/                # Unit/integration tests
