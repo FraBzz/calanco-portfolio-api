@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { CreateProductDto } from './dto/create-product.dto';
 import { IProductsService } from './interfaces/products.service.interface';
 import { ProductsService } from './products.service';
 
@@ -34,4 +35,16 @@ describe('ProductsService', () => {
     expect(product).toBeDefined();
     expect(product?.id).toBe(products[0].id);
   })
+
+  it('should create a product', () => {
+    const dto: CreateProductDto = {
+      name: 'Nuovo Prodotto',
+      description: 'Descrizione prodotto',
+      price: 100,
+    };
+    const newProduct = service.create(dto);
+    expect(newProduct).toBeDefined();
+    expect(newProduct.id).toBeDefined();
+    expect(newProduct.name).toBe(dto.name);
+  });
 });
