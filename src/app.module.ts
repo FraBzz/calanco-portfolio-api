@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { CatsModule } from './modules/cats/cats.module';
+import { CatsModule } from './cats/cats.module';
+import { ProductsModule } from './products/products.module';
 
 @Module({
-  imports: [CatsModule], // 👈 così NestJS riconosce il CatsModule
+  imports: [CatsModule, ProductsModule], // 👈 così NestJS riconosce il CatsModule
   controllers: [AppController],
   providers: [AppService],
 })

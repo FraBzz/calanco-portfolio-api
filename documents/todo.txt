@@ -1,0 +1,13 @@
+per autenticazione usare un middleware
+
+📝 Conclusione: quando ti serve davvero?
+Utilizza un middleware quando hai bisogno di:
+
+centralizzare logiche ripetitive;
+controllare/modificare sistematicamente le richieste o risposte;
+gestire autenticazione o sicurezza;
+effettuare log o analisi delle richieste;
+gestire CORS o altre configurazioni globali.
+
+___________________________________________________________
+
