@@ -1,0 +1,210 @@
+# NestJS: Providers - Introduzione
+
+I **Providers** sono un concetto fondamentale in NestJS. Molte delle classi di base di Nest, come servizi, repository, factory e helper, possono essere trattate come providers. L'idea chiave dietro un provider è che può essere **iniettato come una dipendenza**, permettendo agli oggetti di formare varie relazioni tra loro. La responsabilità di "collegare" questi oggetti è in gran parte gestita dal sistema di runtime di Nest.
+
+## Concetto Chiave:
+
+* I providers possono essere **iniettati come dipendenze**.
+* Nest si occupa principalmente di "collegare" questi oggetti.
+
+## Ruolo dei Providers:
+
+* I **Controllers** (visti nel capitolo precedente) dovrebbero gestire le richieste HTTP e **delegare compiti più complessi ai providers**.
+* I Providers sono semplici classi JavaScript dichiarate come providers in un modulo NestJS.
+
+## Servizi (Esempio):
+
+* Iniziamo con la creazione di un semplice `CatsService`.
+* Questo servizio gestirà l'archiviazione e il recupero dei dati e sarà utilizzato dal `CatsController`.
+* È un candidato ideale per essere definito come provider.
+
+
+```typescript
+// cats.service.ts
+import { Injectable } from '@nestjs/common';
+import { Cat } from './interfaces/cat.interface';
+
+@Injectable()
+export class CatsService {
+  private readonly cats: Cat[] = [];
+
+  create(cat: Cat) {
+    this.cats.push(cat);
+  }
+
+  findAll(): Cat[] {
+    return this.cats;
+  }
+}
+```
+
+* Per creare un servizio tramite CLI: `$ nest g service cats`.
+* Il decoratore `@Injectable()` è fondamentale: segnala che la classe può essere gestita dal container IoC (https://en.wikipedia.org/wiki/Inversion_of_control) di Nest.
+* Viene utilizzata un'interfaccia `Cat` (es. `name: string; age: number; breed: string;`).
+
+# Interfaccia ICatsService
+
+Questa interfaccia definisce il contratto per il servizio dei gatti.
+
+```typescript
+// interfaces/cats-service.interface.ts
+import { Cat } from '../cats/interfaces/cat.interface';
+
+export interface ICatsService {
+  create(cat: Cat): void;
+  findAll(): Cat[];
+}
+```
+
+**Modifica al File 7: Struttura delle Directory e Istanziazione Manuale (providers-directory-manual.md)**
+
+Aggiorneremo anche la struttura delle directory per includere il nuovo file dell'interfaccia:
+
+## Struttura delle Directory (Esempio):
+
+```
+src
+├── cats
+│   ├── dto
+│   │   └── create-cat.dto.ts
+|---├── entities
+│   │   └── cat.interface.ts
+│   ├── interfaces
+│   │   └── cats-service.interface.ts
+│   ├── cats.controller.ts
+│   └── cats.service.ts
+├── app.module.ts
+└── main.ts
+```
+
+## Istanziazione Manuale:
+
+* In alcuni casi, potrebbe essere necessario recuperare o istanziare manualmente i providers.
+* Si può usare il **riferimento al modulo** per ottenere istanze esistenti o istanziare providers dinamicamente.
+* Per ottenere providers nella funzione `bootstrap()` (es. per applicazioni standalone), consultare la sezione sulle applicazioni standalone.
+
+## Utilizzo del Servizio nel Controller:
+
+```typescript
+// cats.controller.ts
+import { Controller, Get, Post, Body } from '@nestjs/common';
+import { CreateCatDto } from './dto/create-cat.dto';
+import { CatsService } from './cats.service';
+import { Cat } from './interfaces/cat.interface';
+
+@Controller('cats')
+export class CatsController {
+  constructor(private catsService: CatsService) {}
+
+  @Post()
+  async create(@Body() createCatDto: CreateCatDto) {
+    this.catsService.create(createCatDto);
+  }
+
+  @Get()
+  async findAll(): Promise<Cat[]> {
+    return this.catsService.findAll();
+  }
+}
+```
+
+* Il `CatsService` viene **iniettato** tramite il costruttore della classe.
+* La parola chiave `private` è una scorciatoia per dichiarare e inizializzare la proprietà `catsService` nello stesso momento.
+
+## Dependency Injection:
+
+* Nest è costruito sul pattern **Dependency Injection**.
+* Le dipendenze vengono risolte in base al loro **tipo** grazie alle capacità di TypeScript.
+* Nest crea e restituisce un'istanza del provider (o l'istanza esistente se è un singleton).
+* La dipendenza viene poi iniettata nel costruttore del controller (o assegnata alla proprietà specificata).
+
+## Scopes:
+
+* I providers hanno tipicamente un ciclo di vita ("scope") che si allinea con il ciclo di vita dell'applicazione.
+* **Default:** Quando l'applicazione si avvia, ogni provider viene istanziato. Allo stesso modo, vengono distrutti alla chiusura.
+* **Request-scoped:** È possibile rendere un provider legato a una specifica richiesta.
+
+## Custom Providers:
+
+* Nest ha un **container IoC (Inversion of Control)** integrato che gestisce le relazioni tra i providers.
+* Ci sono diversi modi per definire un provider: valori semplici, classi e factory (asincrone o sincrone).
+* Per maggiori dettagli, consultare il capitolo sulla Dependency Injection.
+
+## Optional Providers:
+
+* A volte le dipendenze potrebbero non essere sempre necessarie.
+* Per rendere un provider opzionale, si usa il decoratore `@Optional()` nella firma del costruttore.
+
+```typescript
+import { Injectable, Optional, Inject } from '@nestjs/common';
+
+@Injectable()
+export class HttpService<T> {
+  constructor(@Optional() @Inject('HTTP_OPTIONS') private httpClient: T) {}
+}
+```
+
+* Nell'esempio, viene utilizzato un provider personalizzato, motivo per cui si include il token personalizzato `HTTP_OPTIONS`.
+
+## Property-based Injection:
+
+* Oltre all'iniezione basata sul costruttore, è possibile utilizzare l'iniezione basata sulla proprietà con il decoratore `@Inject()` direttamente a livello di proprietà.
+
+```typescript
+import { Injectable, Inject } from '@nestjs/common';
+
+@Injectable()
+export class HttpService<T> {
+  @Inject('HTTP_OPTIONS')
+  private readonly httpClient: T;
+}
+```
+
+* **Avvertenza:** Se la classe non estende un'altra classe, è generalmente meglio usare l'iniezione basata sul costruttore per una migliore visibilità e comprensione del codice.
+
+## Registrazione dei Providers:
+
+* Dopo aver definito un provider (es. `CatsService`) e un consumatore (es. `CatsController`), è necessario **registrare il servizio con Nest** affinché possa gestire l'iniezione.
+* Questo si fa modificando il file del modulo (es. `app.module.ts`) e aggiungendo il servizio all'array `providers` nel decoratore `@Module()`.
+
+```typescript
+// cats.module.ts
+import { Module } from '@nestjs/common';
+import { CatsController } from './cats.controller';
+import { CatsService } from './cats.service';
+
+@Module({
+  controllers: [CatsController], // <-- registra il controller
+  providers: [
+    {
+      provide: 'ICatsService', // Token da usare nel controller
+      useClass: CatsService, // Classe concreta che Nest istanzierà
+    },
+  ], // <-- registra il servizio
+  //   exports: ['ICatsService'], //per usarw cats service in altri moduli
+})
+export class CatsModule {}
+```
+
+* Nest sarà ora in grado di risolvere le dipendenze del `CatsController`.
+
+## Struttura delle Directory (Esempio):
+
+```
+src
+├── cats
+│   ├── dto
+│   │   └── create-cat.dto.ts
+│   ├── interfaces
+│   │   └── cat.interface.ts
+│   ├── cats.controller.ts
+│   └── cats.service.ts
+├── app.module.ts
+└── main.ts
+```
+
+## Istanziazione Manuale:
+
+* In alcuni casi, potrebbe essere necessario recuperare o istanziare manualmente i providers.
+* Si può usare il **riferimento al modulo** per ottenere istanze esistenti o istanziare providers dinamicamente.
+* Per ottenere providers nella funzione `bootstrap()` (es. per applicazioni standalone), consultare la sezione sulle applicazioni standalone.

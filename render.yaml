@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: calanco-api
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm run start:prod
+    rootDir: .
+    envVars:
+      - key: SUPABASE_URL
+        fromDashboard: true
+      - key: SUPABASE_KEY
+        fromDashboard: true
