@@ -1,50 +1,80 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { SupabaseService } from '../supabase/supabase.service';
 import { CreateProductDto } from './dto/create-product.dto';
-import { IProductsService } from './interfaces/products.service.interface';
 import { ProductsService } from './products.service';
 
 describe('ProductsService', () => {
-  let service: IProductsService;
+  let service: ProductsService;
+  let supabaseService: SupabaseService;
+
+  const mockSupabaseService = {
+    // Aggiungi qui i metodi mock di cui hai bisogno
+    getClient: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        ProductsService,
         {
-          provide: 'IProductsService',
-          useClass: ProductsService
-        }
+          provide: SupabaseService,
+          useValue: mockSupabaseService,
+        },
       ],
     }).compile();
 
-    service = module.get<IProductsService>('IProductsService');
+    service = module.get<ProductsService>(ProductsService);
+    supabaseService = module.get<SupabaseService>(SupabaseService);
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
-  it('should return all products', () => {
-    const products = service.findAll();
+  it('should return all products', async () => {
+    jest.spyOn(service, 'findAll').mockResolvedValueOnce([
+      {
+        id: '1',
+        name: 'Product 1',
+        description: 'Description 1',
+        price: 100,
+      },
+    ]);
+
+    const products = await service.findAll();
     expect(products).toBeDefined();
-    expect(products.length).toBeGreaterThan(0);
+    expect(products.length).toBe(1);
+    expect(products[0].name).toBe('Product 1');
   });
 
-  it('should return one product by id', () => {
-    const products = service.findAll();
-    const product = service.findOne(products[0].id);
-    expect(product).toBeDefined();
-    expect(product?.id).toBe(products[0].id);
-  })
-
-  it('should create a product', () => {
-    const dto: CreateProductDto = {
-      name: 'Nuovo Prodotto',
-      description: 'Descrizione prodotto',
+  it('should return one product by id', async () => {
+    jest.spyOn(service, 'findOne').mockResolvedValueOnce({
+      id: '1',
+      name: 'Product 1',
+      description: 'Description 1',
       price: 100,
+    });
+
+    const product = await service.findOne('1');
+    expect(product).toBeDefined();
+    expect(product?.id).toBe('1');
+  });
+
+  it('should create a product', async () => {
+    const dto: CreateProductDto = {
+      name: 'New Product',
+      description: 'New Description',
+      price: 200,
     };
-    const newProduct = service.create(dto);
+
+    jest.spyOn(service, 'create').mockResolvedValueOnce({
+      id: '2',
+      ...dto,
+    });
+
+    const newProduct = await service.create(dto);
     expect(newProduct).toBeDefined();
-    expect(newProduct.id).toBeDefined();
+    expect(newProduct.id).toBe('2');
     expect(newProduct.name).toBe(dto.name);
   });
 });

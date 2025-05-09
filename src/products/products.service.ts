@@ -1,30 +1,40 @@
 import { Injectable } from '@nestjs/common';
-import { v4 as uuid } from 'uuid';
+import { SupabaseService } from '../supabase/supabase.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { Product } from './entities/product.entity';
 import { IProductsService } from './interfaces/products.service.interface';
 
 @Injectable()
 export class ProductsService implements IProductsService {
-    private products: Product[] = [
-        { id: uuid(), name: 'Tastiera', description: 'Meccanica RGB', price: 79.99 },
-        { id: uuid(), name: 'Mouse', description: 'Wireless ergonomico', price: 49.99 },
-        { id: uuid(), name: 'Monitor', description: '27 pollici IPS', price: 179.99 },
-        { id: uuid(), name: 'Cuffie', description: 'Gaming Surround', price: 89.99 },
-        { id: uuid(), name: 'Microfono', description: 'USB condensatore', price: 59.99 },
-    ]
-    
-    findAll(): Product[] {
-        return this.products;
-    }
+    constructor(private readonly supabaseService: SupabaseService) {}
 
-    findOne(id: string): Product | undefined {
-        return this.products.find(product => product.id === id);
-    }
+  async findAll(): Promise<Product[]> {
+    const { data, error } = await this.supabaseService.getClient()
+      .from('products')
+      .select('*');
+    if (error) throw new Error(error.message);
+    return data as Product[];
+  }
 
-    create(dto: CreateProductDto): Product {
-        const newProduct: Product = { id: uuid(), ...dto };
-        this.products.push(newProduct);
-        return newProduct;
-      }
+  async findOne(id: string): Promise<Product | null> {
+    const { data, error } = await this.supabaseService.getClient()
+      .from('products')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) throw new Error(error.message);
+    return data as Product;
+  }
+
+  async create(createProductDto: CreateProductDto): Promise<Product> {
+    const { data, error } = await this.supabaseService.getClient()
+      .from('products')
+      .insert(createProductDto)
+      .select()
+      .single();
+    if (error) {
+        console.log("errore")
+        throw new Error(error.message);}
+    return data as Product;
+  }
 }

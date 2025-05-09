@@ -1,8 +1,9 @@
-import { CartItem } from "../entities/cart.entity";
+import { Cart } from "../entities/cart.entity";
+import { CartLine } from "../entities/cartLine.entity";
 
 export interface ICartService {
-    getCart(): CartItem[];
-    addToCart(cartItem: CartItem): void;
-    removeFromCart(productId: number): void;
-    clearCart(): void;
+    getCart(cartId: string): Cart;
+    addToCart(cartId: string,cartItem: CartLine): void ;
+    removeFromCart(cartId: string, productId: number): void;
+    clearCart(cartId: string): void;
 }

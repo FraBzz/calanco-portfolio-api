@@ -1,12 +1,12 @@
 import {
-    Body,
-    Controller,
-    Get,
-    Inject,
-    NotFoundException,
-    Param,
-    ParseUUIDPipe,
-    Post,
+  Body,
+  Controller,
+  Get,
+  Inject,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Post,
 } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { IProductsService } from './interfaces/products.service.interface';
@@ -24,12 +24,11 @@ export class ProductsController {
   }
 
   @Get(':id')
-  getProduct(@Param('id', ParseUUIDPipe) id: string) {
-    //parseuuidpipe controlla che l'id sia una guid valida
-    const product = this.productsService.findOne(id);
+  async getProduct(@Param('id', ParseUUIDPipe) id: string) {
+    const product = await this.productsService.findOne(id);
 
-    if(!product){
-        throw new NotFoundException("Product not found")
+    if (!product) {
+      throw new NotFoundException('Product not found');
     }
 
     return product;

@@ -22,19 +22,19 @@ describe('ProductsController', () => {
     },
   ];
 
-  // Mock minimale del tuo servizio
   const mockProductsService: IProductsService = {
-    findAll: jest.fn().mockReturnValue(mockProducts),
+    findAll: jest.fn().mockResolvedValue(mockProducts),
     findOne: jest
       .fn()
-      .mockImplementation((id: string) =>
+      .mockImplementation(async (id: string) =>
         mockProducts.find((p) => p.id === id),
       ),
-    //mockImplementation permette di passare una funzione che viene effettivamente eseguita con i parametri ricevuti dal mock.
-    create: jest.fn().mockImplementation((dto: CreateProductDto) => ({
-      id: 'new-generated-uuid',
-      ...dto,
-    })),
+    create: jest
+      .fn()
+      .mockImplementation(async (dto: CreateProductDto) => ({
+        id: 'new-generated-uuid',
+        ...dto,
+      })),
   };
 
   beforeEach(async () => {
@@ -42,8 +42,8 @@ describe('ProductsController', () => {
       controllers: [ProductsController],
       providers: [
         {
-          provide: 'IProductsService', // ← Inserire sempre il token corretto
-          useValue: mockProductsService, // ← Mock del servizio
+          provide: 'IProductsService',
+          useValue: mockProductsService,
         },
       ],
     }).compile();
@@ -55,15 +55,15 @@ describe('ProductsController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('should return all products', () => {
-    const products = controller.getAllProducts();
+  it('should return all products', async () => {
+    const products = await controller.getAllProducts();
     expect(products).toBeDefined();
     expect(products.length).toBeGreaterThan(0);
     expect(mockProductsService.findAll).toHaveBeenCalled();
   });
 
-  it('should return one product', () => {
-    const product = controller.getProduct(
+  it('should return one product', async () => {
+    const product = await controller.getProduct(
       '1d40e473-e034-49f5-ac5d-980c7b7e7942',
     );
     expect(product).toBeDefined();
@@ -73,24 +73,24 @@ describe('ProductsController', () => {
     );
   });
 
-  it('should return undefined if product not found', () => {
+  it('should throw NotFoundException if product not found', async () => {
     const nonExistingId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
-    jest.spyOn(mockProductsService, 'findOne').mockReturnValueOnce(undefined); //mocka la funzione findOne in modo che esca un undefined
+    jest.spyOn(mockProductsService, 'findOne').mockResolvedValueOnce(undefined);
 
-    expect(() => controller.getProduct(nonExistingId)).toThrow(
+    await expect(controller.getProduct(nonExistingId)).rejects.toThrow(
       NotFoundException,
     );
     expect(mockProductsService.findOne).toHaveBeenCalledWith(nonExistingId);
   });
 
-  it('should create a new product', () => {
+  it('should create a new product', async () => {
     const dto: CreateProductDto = {
       name: 'Microfono',
       description: 'Condensatore USB',
       price: 59.99,
     };
 
-    const newProduct = controller.createProduct(dto);
+    const newProduct = await controller.createProduct(dto);
     expect(newProduct).toBeDefined();
     expect(newProduct).toEqual({
       id: 'new-generated-uuid',
