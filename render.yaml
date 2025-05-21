@@ -11,3 +11,5 @@ services:
         fromDashboard: true
       - key: SUPABASE_KEY
         fromDashboard: true
+      - key: WEATHER_API_KEY
+        fromDashboard: true
