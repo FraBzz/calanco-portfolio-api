@@ -3,7 +3,7 @@ services:
     name: calanco-api
     env: node
     plan: free
-    buildCommand: npm run build
+    buildCommand: node --no-warnings ./node_modules/@nestjs/cli/bin/nest.js build
     startCommand: npm run start:prod
     rootDir: .
     envVars:
