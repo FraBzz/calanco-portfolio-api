@@ -12,16 +12,15 @@ export class WeatherProvider implements IWeatherProvider {
         private readonly configService: ConfigService
     ) {
         this.apiKey = this.configService.get<string>('WEATHER_API_KEY');
-    }
-
-    async fetchCurrent(city: string): Promise<any> {
-        console.log(this.apiKey)
-        const url = `http://api.weatherapi.com/v1/current.json?key=${this.apiKey}&q=${city}`;
+    }    async fetchCurrent(city: string): Promise<any> {
+        const encodedCity = encodeURIComponent(city);
+        const url = `https://api.weatherapi.com/v1/current.json?key=${this.apiKey}&q=${encodedCity}`;
         const response = await firstValueFrom(this.httpService.get(url));
         return response.data;
     }
     async fetchForecast(city: string, days = 3): Promise<any> {
-        const url = `http://api.weatherapi.com/v1/forecast.json?key=${this.apiKey}&q=${city}&days=${days}`;
+        const encodedCity = encodeURIComponent(city);
+        const url = `https://api.weatherapi.com/v1/forecast.json?key=${this.apiKey}&q=${encodedCity}&days=${days}`;
         const response = await firstValueFrom(this.httpService.get(url));
         return response.data;
     }

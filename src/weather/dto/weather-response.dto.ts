@@ -1,23 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class ForecastDayDto {
-  @ApiProperty({
+export class ForecastDayDto {  @ApiProperty({
     example: '2025-05-16',
     description: 'Data del giorno della previsione (formato ISO)',
   })
-  day: string;
-
+  date: string;
   @ApiProperty({
     example: 28,
     description: 'Temperatura massima prevista per il giorno (°C)',
   })
-  high: number;
+  maxTemp: number;
 
   @ApiProperty({
     example: 17,
     description: 'Temperatura minima prevista per il giorno (°C)',
   })
-  low: number;
+  minTemp: number;
 
   @ApiProperty({
     example: 'sunny',

@@ -12,9 +12,7 @@ export class WeatherService implements IWeatherService {
 
   async getWeatherByCity(city: string, days: number): Promise<WeatherResponseDto> {
     // const data = await this.weatherProvider.fetchCurrent(city);
-    const data = await this.weatherProvider.fetchForecast(city, days);
-
-    const forecast: ForecastDayDto[] = data.forecast.forecastday.slice(1).map((day) => ({
+    const data = await this.weatherProvider.fetchForecast(city, days);    const forecast: ForecastDayDto[] = data.forecast.forecastday.slice(1).map((day) => ({
       date: day.date,
       maxTemp: day.day.maxtemp_c,
       minTemp: day.day.mintemp_c,
@@ -58,9 +56,7 @@ export class WeatherService implements IWeatherService {
   }
 
   async getWeatherForecast(city: string, days: number): Promise<ForecastDayDto[]> {
-    const data = await this.weatherProvider.fetchForecast(city, days);
-
-    const forecast: ForecastDayDto[] = data.forecast.forecastday.map((day) => ({
+    const data = await this.weatherProvider.fetchForecast(city, days);    const forecast: ForecastDayDto[] = data.forecast.forecastday.map((day) => ({
       date: day.date,
       maxTemp: day.day.maxtemp_c,
       minTemp: day.day.mintemp_c,
