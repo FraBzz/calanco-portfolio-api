@@ -5,35 +5,43 @@ import { ICartService } from './interfaces/cart.service.interface';
 import { Cart } from './entities/cart.entity';
 import { BadRequestException } from '@nestjs/common';
 import { ProductsService } from '../products/products.service';
+import { IdGeneratorService } from '../common/services/id-generator.service';
 
 const EMPTY_CART_ID = '00000000-0000-0000-0000-000000000000';
 const MOCK_PRODUCT_ID = '123e4567-e89b-12d3-a456-426614174001';
+const MOCK_CART_ID = '123e4567-e89b-12d3-a456-426614174000';
 
 describe('CartController', () => {
   let controller: CartController;
   let cartService: ICartService;
   let productsService: ProductsService;
+  let idGenerator: IdGeneratorService;
   
   const mockCart: Cart = {
-    id: '123e4567-e89b-12d3-a456-426614174000',
+    id: MOCK_CART_ID,
     lines: [],
     createdAt: new Date(),
     updatedAt: new Date(),
     updateTimestamp: jest.fn()
   };
 
+  const mockIdGeneratorService = {
+    generateId: jest.fn().mockReturnValue(MOCK_CART_ID),
+    validateId: jest.fn().mockReturnValue(true),
+  };
+
   const mockProductsService = {
     findOne: jest.fn().mockResolvedValue({ id: MOCK_PRODUCT_ID, name: 'Test Product' }),
   };
-
+  
   const mockCartService = {
-    createCart: jest.fn().mockReturnValue(mockCart),
-    getCart: jest.fn().mockReturnValue(mockCart),
+    createCart: jest.fn().mockResolvedValue(mockCart),
+    getCart: jest.fn().mockResolvedValue(mockCart),
     addToCart: jest.fn().mockImplementation(async (cartId: string, item: CartLine) => {
       await mockProductsService.findOne(item.productId);
     }),
-    removeFromCart: jest.fn(),
-    clearCart: jest.fn(),
+    removeFromCart: jest.fn().mockResolvedValue(undefined),
+    clearCart: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
@@ -48,12 +56,17 @@ describe('CartController', () => {
           provide: ProductsService,
           useValue: mockProductsService,
         },
+        {
+          provide: IdGeneratorService,
+          useValue: mockIdGeneratorService,
+        },
       ],
     }).compile();
 
     controller = module.get<CartController>(CartController);
     cartService = module.get<ICartService>('ICartService');
     productsService = module.get<ProductsService>(ProductsService);
+    idGenerator = module.get<IdGeneratorService>(IdGeneratorService);
 
     // Reset all mocks before each test
     jest.clearAllMocks();
@@ -62,10 +75,9 @@ describe('CartController', () => {
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
-
   describe('getCart', () => {
-    it('should create a new cart when empty UUID is provided', () => {
-      const result = controller.getCart(EMPTY_CART_ID);
+    it('should create a new cart when empty UUID is provided', async () => {
+      const result = await controller.getCart(EMPTY_CART_ID);
       
       expect(cartService.createCart).toHaveBeenCalled();
       expect(cartService.getCart).not.toHaveBeenCalled();
@@ -76,9 +88,9 @@ describe('CartController', () => {
       expect(result.data.id).toBe(mockCart.id);
     });
 
-    it('should get existing cart when valid UUID is provided', () => {
+    it('should get existing cart when valid UUID is provided', async () => {
       const cartId = '123e4567-e89b-12d3-a456-426614174000';
-      const result = controller.getCart(cartId);
+      const result = await controller.getCart(cartId);
       
       expect(cartService.createCart).not.toHaveBeenCalled();
       expect(cartService.getCart).toHaveBeenCalledWith(cartId);
@@ -113,13 +125,12 @@ describe('CartController', () => {
       await expect(controller.addToCart(cartId, item)).rejects.toThrow(BadRequestException);
     });
   });
-
   describe('removeFromCart', () => {
-    it('should remove item from cart', () => {
+    it('should remove item from cart', async () => {
       const cartId = '123e4567-e89b-12d3-a456-426614174000';
       const productId = MOCK_PRODUCT_ID;
       
-      const result = controller.removeFromCart(cartId, productId);
+      const result = await controller.removeFromCart(cartId, productId);
       
       expect(cartService.removeFromCart).toHaveBeenCalledWith(cartId, productId);
       expect(cartService.getCart).toHaveBeenCalledWith(cartId);
@@ -130,10 +141,10 @@ describe('CartController', () => {
   });
 
   describe('clearCart', () => {
-    it('should clear cart', () => {
+    it('should clear cart', async () => {
       const cartId = '123e4567-e89b-12d3-a456-426614174000';
       
-      const result = controller.clearCart(cartId);
+      const result = await controller.clearCart(cartId);
       
       expect(cartService.clearCart).toHaveBeenCalledWith(cartId);
       expect(cartService.getCart).toHaveBeenCalledWith(cartId);

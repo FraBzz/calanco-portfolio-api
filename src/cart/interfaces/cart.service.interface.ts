@@ -2,9 +2,9 @@ import { Cart } from '../entities/cart.entity';
 import { CartLine } from '../entities/cartLine.entity';
 
 export interface ICartService {
-  createCart(): Cart;
-  getCart(cartId: string): Cart;
+  createCart(): Promise<Cart>;
+  getCart(cartId: string): Promise<Cart>;
   addToCart(cartId: string, cartItem: CartLine): Promise<void>;
-  removeFromCart(cartId: string, productId: string): void;
-  clearCart(cartId: string): void;
+  removeFromCart(cartId: string, productId: string): Promise<void>;
+  clearCart(cartId: string): Promise<void>;
 }
