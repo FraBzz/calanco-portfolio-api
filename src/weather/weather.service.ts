@@ -14,9 +14,7 @@ export class WeatherService implements IWeatherService {
     // const data = await this.weatherProvider.fetchCurrent(city);
     const data = await this.weatherProvider.fetchForecast(city, days);
 
-    // console.log("forecats", dataForecast)
-
-    const forecast: ForecastDayDto[] = data.forecast.forecastday.map((day) => ({
+    const forecast: ForecastDayDto[] = data.forecast.forecastday.slice(1).map((day) => ({
       date: day.date,
       maxTemp: day.day.maxtemp_c,
       minTemp: day.day.mintemp_c,
@@ -30,7 +28,7 @@ export class WeatherService implements IWeatherService {
       humidity: data.current.humidity,
       wind: data.current.wind_kph,
       condition: this.mapCondition(data.current.condition.text),
-      forecast: forecast, // fetchForecast ancora non implementato nel provider
+      forecast: forecast,
       advice: this.generateAdvice(data.current.temp_c, data.current.condition.text),
     };
 
@@ -48,7 +46,7 @@ export class WeatherService implements IWeatherService {
     if (cond.includes('storm') || cond.includes('thunder')) return 'stormy';
     if (cond.includes('fog') || cond.includes('mist') || cond.includes('haze')) return 'foggy';
 
-    return 'cloudy'; // fallback
+    return 'cloudy';
   }
 
   private generateAdvice(temp: number, condition: string): string {
