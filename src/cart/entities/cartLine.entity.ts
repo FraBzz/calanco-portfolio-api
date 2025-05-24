@@ -1,4 +1,4 @@
 export class CartLine {
-  productId: number;
+  productId: string;
   quantity: number;
 }

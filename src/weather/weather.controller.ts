@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Query } from '@nestjs/common';
+import { Controller, Get, HttpException, HttpStatus, Inject, Query } from '@nestjs/common';
 import { WeatherResponseDto } from './dto/weather-response.dto';
 import { ApiResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { IWeatherService } from './interfaces/weather.service.interface';
@@ -15,6 +15,7 @@ export class WeatherController {
   @Get()
   @ApiQuery({ name: 'days', required: false, type: Number, example: 3 })
   @ApiResponse({ status: 200, type: WeatherResponseDto })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
   async getWeather(@Query() query: WeatherQueryDto): Promise<ApiResponseDto<WeatherResponseDto>> {
     try {
       const data = await this.weatherService.getWeatherByCity(query.city, query.days);
@@ -22,15 +23,16 @@ export class WeatherController {
         type: 'success',
         status: 200,
         data,
+        message: 'Weather data retrieved successfully',
         timestamp: new Date()
       };
     } catch (error) {
-      return {
+      throw new HttpException({
         type: 'error',
         message: error.message,
-        status: 500,
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
         timestamp: new Date()
-      };
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }

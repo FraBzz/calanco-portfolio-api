@@ -1,68 +1,175 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CartService } from './cart.service';
 import { CartLine } from './entities/cartLine.entity';
-import { ICartService } from './interfaces/cart.service.interface';
+import { BadRequestException } from '@nestjs/common';
+import { IdGeneratorService } from '../common/services/id-generator.service';
+import { IProductsService } from '../products/interfaces/products.service.interface';
 
 describe('CartService', () => {
-  let service: ICartService;
-  const testCartId = 'cart123';
+  let service: CartService;
+  let idGenerator: IdGeneratorService;
+  let productsService: IProductsService;
+
+  const mockUuid = '123e4567-e89b-12d3-a456-426614174000';
+  const mockProductId = '123e4567-e89b-12d3-a456-426614174001';
+  
+  const mockIdGeneratorService = {
+    generateId: jest.fn().mockReturnValue(mockUuid),
+    validateId: jest.fn().mockImplementation((id: string) => id === mockUuid || id === mockProductId),
+  };
+
+  const mockProductsService = {
+    findOne: jest.fn().mockImplementation((id: string) => {
+      if (id === mockProductId) {
+        return Promise.resolve({ id: mockProductId, name: 'Test Product' });
+      }
+      return Promise.reject(new BadRequestException('Product not found'));
+    }),
+    findAll: jest.fn(),
+    create: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [{
-        provide: 'ICartService',
-        useClass: CartService
-      }],
+      providers: [
+        CartService,
+        {
+          provide: IdGeneratorService,
+          useValue: mockIdGeneratorService,
+        },
+        {
+          provide: 'IProductsService',
+          useValue: mockProductsService,
+        },
+      ],
     }).compile();
 
-    service = module.get<ICartService>('ICartService');
+    service = module.get<CartService>(CartService);
+    idGenerator = module.get<IdGeneratorService>(IdGeneratorService);
+    productsService = module.get<IProductsService>('IProductsService');
+
+    // Reset all mocks before each test
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
-  it('should return an empty cart initially', () => {
-    const cart = service.getCart(testCartId);
-    expect(cart).toBeDefined(); 
-    expect(cart.lines.length).toBe(0); 
+  describe('createCart', () => {
+    it('should create a new cart with generated UUID', () => {
+      const cart = service.createCart();
+      expect(idGenerator.generateId).toHaveBeenCalled();
+      expect(cart.id).toBe(mockUuid);
+      expect(cart.lines).toEqual([]);
+    });
   });
 
-  it('should return cart', () => {
-    const cart = service.getCart(testCartId);
-    expect(cart).toBeDefined();
-  })
+  describe('getCart', () => {
+    it('should throw error if cart ID is invalid', () => {
+      const invalidId = 'invalid-id';
+      expect(() => service.getCart(invalidId)).toThrow(BadRequestException);
+      expect(idGenerator.validateId).toHaveBeenCalledWith(invalidId);
+    });
 
-  it('should add item to cart', () => {
-    const cartItem: CartLine = { productId: 1, quantity: 1 };
-    service.addToCart(testCartId, cartItem);
+    it('should throw error if cart is not found', () => {
+      expect(() => service.getCart(mockUuid)).toThrow(BadRequestException);
+    });
 
-    const cart = service.getCart(testCartId);
-    expect(cart).toBeDefined();
-    expect(cart!.lines.length).toBe(1);
-    expect(cart!.lines[0].productId).toBe(cartItem.productId);
+    it('should return cart if it exists', () => {
+      // Create a cart first
+      const newCart = service.createCart();
+      const cart = service.getCart(newCart.id);
+      expect(cart).toBeDefined();
+      expect(cart.id).toBe(newCart.id);
+    });
   });
 
-  it('should remove item from cart', () => {
-    const cartItem1: CartLine = { productId: 1, quantity: 1 };
-    const cartItem2: CartLine = { productId: 2, quantity: 1 };
+  describe('addToCart', () => {
+    it('should throw error if cart ID is invalid', async () => {
+      const invalidId = 'invalid-id';
+      const item: CartLine = { productId: mockProductId, quantity: 1 };
+      await expect(service.addToCart(invalidId, item)).rejects.toThrow(BadRequestException);
+      expect(idGenerator.validateId).toHaveBeenCalledWith(invalidId);
+      expect(productsService.findOne).not.toHaveBeenCalled();
+    });
 
-    service.addToCart(testCartId, cartItem1);
-    service.addToCart(testCartId, cartItem2);
+    it('should throw error if product ID is invalid', async () => {
+      const cart = service.createCart();
+      const invalidProductId = 'invalid-product-id';
+      const item: CartLine = { productId: invalidProductId, quantity: 1 };
+      
+      await expect(service.addToCart(cart.id, item)).rejects.toThrow('Product not found');
+      expect(productsService.findOne).toHaveBeenCalledWith(invalidProductId);
+    });
 
-    service.removeFromCart(testCartId, 1);
+    it('should add new item to cart', async () => {
+      const cart = service.createCart();
+      const item: CartLine = { productId: mockProductId, quantity: 1 };
+      
+      await service.addToCart(cart.id, item);
+      
+      expect(productsService.findOne).toHaveBeenCalledWith(mockProductId);
+      const updatedCart = service.getCart(cart.id);
+      expect(updatedCart.lines).toHaveLength(1);
+      expect(updatedCart.lines[0]).toEqual(item);
+    });
 
-    const cart = service.getCart(testCartId);
-    expect(cart!.lines.length).toBe(1);
-    expect(cart!.lines[0].productId).toBe(2);
+    it('should update quantity if item already exists', async () => {
+      const cart = service.createCart();
+      const item: CartLine = { productId: mockProductId, quantity: 1 };
+      
+      await service.addToCart(cart.id, item);
+      await service.addToCart(cart.id, item);
+      
+      expect(productsService.findOne).toHaveBeenCalledTimes(2);
+      expect(productsService.findOne).toHaveBeenCalledWith(mockProductId);
+      const updatedCart = service.getCart(cart.id);
+      expect(updatedCart.lines).toHaveLength(1);
+      expect(updatedCart.lines[0].quantity).toBe(2);
+    });
   });
 
-  it('should clear cart', () => {
-    const cartItem: CartLine = { productId: 1, quantity: 1 };
-    service.addToCart(testCartId, cartItem);
-    service.clearCart(testCartId);
+  describe('removeFromCart', () => {
+    it('should throw error if cart ID is invalid', () => {
+      const invalidId = 'invalid-id';
+      expect(() => service.removeFromCart(invalidId, mockProductId)).toThrow(BadRequestException);
+      expect(idGenerator.validateId).toHaveBeenCalledWith(invalidId);
+    });
 
-    const cart = service.getCart(testCartId);
-    expect(cart!.lines.length).toBe(0);
+    it('should remove item from cart', async () => {
+      const cart = service.createCart();
+      const item: CartLine = { productId: mockProductId, quantity: 1 };
+      
+      await service.addToCart(cart.id, item);
+      service.removeFromCart(cart.id, mockProductId);
+      
+      const updatedCart = service.getCart(cart.id);
+      expect(updatedCart.lines).toHaveLength(0);
+    });
+
+    it('should not throw if product does not exist in cart', () => {
+      const cart = service.createCart();
+      expect(() => service.removeFromCart(cart.id, mockProductId)).not.toThrow();
+    });
+  });
+
+  describe('clearCart', () => {
+    it('should throw error if cart ID is invalid', () => {
+      const invalidId = 'invalid-id';
+      expect(() => service.clearCart(invalidId)).toThrow(BadRequestException);
+      expect(idGenerator.validateId).toHaveBeenCalledWith(invalidId);
+    });
+
+    it('should clear all items from cart', async () => {
+      const cart = service.createCart();
+      const item: CartLine = { productId: mockProductId, quantity: 1 };
+      
+      await service.addToCart(cart.id, item);
+      service.clearCart(cart.id);
+      
+      const updatedCart = service.getCart(cart.id);
+      expect(updatedCart.lines).toHaveLength(0);
+    });
   });
 });

@@ -1,10 +1,12 @@
-import { Body, Controller, Delete, Get, Inject, Param, Post, Put } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Inject, Param, ParseUUIDPipe, Post, UsePipes, ValidationPipe } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiBody } from '@nestjs/swagger';
 import { ApiResponseDto } from '../common/dto/api-response.dto';
 import { CartDto } from './dto/cart.dto';
-import { Cart } from './entities/cart.entity';
 import { CartLine } from './entities/cartLine.entity';
 import { ICartService } from './interfaces/cart.service.interface';
+import { AddItemDto } from './dto/add-item.dto';
+
+const EMPTY_CART_ID = '00000000-0000-0000-0000-000000000000';
 
 @ApiTags('Cart')
 @Controller('cart')
@@ -15,101 +17,87 @@ export class CartController {
   ) {}
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a cart by ID' })
-  @ApiResponse({ status: 200, type: CartDto })
-  getCart(@Param('id') id: string): ApiResponseDto<CartDto> {
-    try {
-      const cart: Cart = this.cartService.getCart(id);
-      const cartDto = new CartDto(cart.id, cart.lines);
-      return {
-        type: 'success',
-        data: cartDto,
-        status: 200,
-        message: 'Cart retrieved successfully',
-        timestamp: new Date()
-      };
-    } catch (error) {
-      return {
-        type: 'error',
-        status: 500,
-        message: error.message,
-        timestamp: new Date()
-      };
-    }
+  @ApiOperation({ summary: 'Get or create a cart' })
+  @ApiParam({ name: 'id', description: 'Cart ID (UUID)', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Cart found or created successfully', type: CartDto })
+  @ApiResponse({ status: 400, description: 'Invalid cart ID format' })
+  getCart(@Param('id', ParseUUIDPipe) id: string): ApiResponseDto<CartDto> {
+    const cart = id === EMPTY_CART_ID 
+      ? this.cartService.createCart()
+      : this.cartService.getCart(id);
+
+    return {
+      type: 'success',
+      status: 200,
+      message: id === EMPTY_CART_ID ? 'Cart created successfully' : 'Cart retrieved successfully',
+      data: new CartDto(cart.id, cart.lines),
+      timestamp: new Date()
+    };
   }
 
   @Post(':id/items')
   @ApiOperation({ summary: 'Add an item to cart' })
-  @ApiResponse({ status: 201, type: CartDto })
-  addToCart(@Param('id') id: string, @Body() item: CartLine): ApiResponseDto<CartDto> {
-    try {
-      this.cartService.addToCart(id, item);
-      const cart = this.cartService.getCart(id);
-      const cartDto = new CartDto(cart.id, cart.lines);
-      return {
-        type: 'success',
-        data: cartDto,
-        status: 201,
-        message: 'Item added to cart successfully',
-        timestamp: new Date()
-      };
-    } catch (error) {
-      return {
-        type: 'error',
-        status: 500,
-        message: error.message,
-        timestamp: new Date()
-      };
-    }
+  @ApiParam({ name: 'id', description: 'Cart ID (UUID)', type: 'string' })
+  @ApiBody({ type: AddItemDto })
+  @ApiResponse({ status: 200, description: 'Item added successfully', type: CartDto })
+  @ApiResponse({ status: 400, description: 'Invalid cart ID, invalid request body, or product not found' })
+  @UsePipes(new ValidationPipe())
+  async addToCart(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() item: AddItemDto,
+  ): Promise<ApiResponseDto<CartDto>> {
+    const cartLine: CartLine = {
+      productId: item.productId,
+      quantity: item.quantity
+    };
+    
+    await this.cartService.addToCart(id, cartLine);
+    const cart = this.cartService.getCart(id);
+    
+    return {
+      type: 'success',
+      status: 200,
+      message: 'Item added to cart successfully',
+      data: new CartDto(cart.id, cart.lines),
+      timestamp: new Date()
+    };
   }
 
   @Delete(':id/items/:productId')
   @ApiOperation({ summary: 'Remove an item from cart' })
-  @ApiResponse({ status: 200, type: CartDto })
-  removeFromCart(@Param('id') id: string, @Param('productId') productId: number): ApiResponseDto<CartDto> {
-    try {
-      this.cartService.removeFromCart(id, productId);
-      const cart = this.cartService.getCart(id);
-      const cartDto = new CartDto(cart.id, cart.lines);
-      return {
-        type: 'success',
-        data: cartDto,
-        status: 200,
-        message: 'Item removed from cart successfully',
-        timestamp: new Date()
-      };
-    } catch (error) {
-      return {
-        type: 'error',
-        status: 500,
-        message: error.message,
-        timestamp: new Date()
-      };
-    }
+  @ApiParam({ name: 'id', description: 'Cart ID (UUID)', type: 'string' })
+  @ApiParam({ name: 'productId', description: 'Product ID (UUID)', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Item removed successfully', type: CartDto })
+  @ApiResponse({ status: 400, description: 'Invalid cart ID or product ID format' })
+  removeFromCart(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('productId', ParseUUIDPipe) productId: string,
+  ): ApiResponseDto<CartDto> {
+    this.cartService.removeFromCart(id, productId);
+    const cart = this.cartService.getCart(id);
+    return {
+      type: 'success',
+      status: 200,
+      message: 'Item removed from cart successfully',
+      data: new CartDto(cart.id, cart.lines),
+      timestamp: new Date()
+    };
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Clear cart' })
-  @ApiResponse({ status: 200, type: CartDto })
-  clearCart(@Param('id') id: string): ApiResponseDto<CartDto> {
-    try {
-      this.cartService.clearCart(id);
-      const cart = this.cartService.getCart(id);
-      const cartDto = new CartDto(cart.id, cart.lines);
-      return {
-        type: 'success',
-        data: cartDto,
-        status: 200,
-        message: 'Cart cleared successfully',
-        timestamp: new Date()
-      };
-    } catch (error) {
-      return {
-        type: 'error',
-        status: 500,
-        message: error.message,
-        timestamp: new Date()
-      };
-    }
+  @ApiParam({ name: 'id', description: 'Cart ID (UUID)', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Cart cleared successfully', type: CartDto })
+  @ApiResponse({ status: 400, description: 'Invalid cart ID format' })
+  clearCart(@Param('id', ParseUUIDPipe) id: string): ApiResponseDto<CartDto> {
+    this.cartService.clearCart(id);
+    const cart = this.cartService.getCart(id);
+    return {
+      type: 'success',
+      status: 200,
+      message: 'Cart cleared successfully',
+      data: new CartDto(cart.id, cart.lines),
+      timestamp: new Date()
+    };
   }
 }

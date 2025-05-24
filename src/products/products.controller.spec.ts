@@ -1,8 +1,9 @@
-import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CreateProductDto } from './dto/create-product.dto';
 import { IProductsService } from './interfaces/products.service.interface';
 import { ProductsController } from './products.controller';
+import { ApiResponseDto } from '../common/dto/api-response.dto';
+import { NotFoundException } from '@nestjs/common';
 
 describe('ProductsController', () => {
   let controller: ProductsController;
@@ -26,9 +27,10 @@ describe('ProductsController', () => {
     findAll: jest.fn().mockResolvedValue(mockProducts),
     findOne: jest
       .fn()
-      .mockImplementation(async (id: string) =>
-        mockProducts.find((p) => p.id === id),
-      ),
+      .mockImplementation(async (id: string) => {
+        const product = mockProducts.find((p) => p.id === id);
+        return product;
+      }),
     create: jest
       .fn()
       .mockImplementation(async (dto: CreateProductDto) => ({
@@ -49,6 +51,7 @@ describe('ProductsController', () => {
     }).compile();
 
     controller = module.get<ProductsController>(ProductsController);
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -56,26 +59,28 @@ describe('ProductsController', () => {
   });
 
   it('should return all products', async () => {
-    const products = await controller.getAllProducts();
-    expect(products).toBeDefined();
-    expect(products.length).toBeGreaterThan(0);
+    const response = await controller.getAllProducts();
+    expect(response).toBeDefined();
+    expect(response.type).toBe('success');
+    expect(response.status).toBe(200);
+    expect(response.data).toBeDefined();
+    expect(response.data.length).toBe(2);
     expect(mockProductsService.findAll).toHaveBeenCalled();
   });
 
   it('should return one product', async () => {
-    const product = await controller.getProduct(
-      '1d40e473-e034-49f5-ac5d-980c7b7e7942',
-    );
-    expect(product).toBeDefined();
-    expect(product.id).toBe('1d40e473-e034-49f5-ac5d-980c7b7e7942');
-    expect(mockProductsService.findOne).toHaveBeenCalledWith(
-      '1d40e473-e034-49f5-ac5d-980c7b7e7942',
-    );
+    const productId = '1d40e473-e034-49f5-ac5d-980c7b7e7942';
+    const response = await controller.getProduct(productId);
+    expect(response).toBeDefined();
+    expect(response.type).toBe('success');
+    expect(response.status).toBe(200);
+    expect(response.data).toBeDefined();
+    expect(response.data.id).toBe(productId);
+    expect(mockProductsService.findOne).toHaveBeenCalledWith(productId);
   });
 
   it('should throw NotFoundException if product not found', async () => {
     const nonExistingId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
-    jest.spyOn(mockProductsService, 'findOne').mockResolvedValueOnce(undefined);
 
     await expect(controller.getProduct(nonExistingId)).rejects.toThrow(
       NotFoundException,
@@ -90,12 +95,15 @@ describe('ProductsController', () => {
       price: 59.99,
     };
 
-    const newProduct = await controller.createProduct(dto);
-    expect(newProduct).toBeDefined();
-    expect(newProduct).toEqual({
-      id: 'new-generated-uuid',
-      ...dto,
-    });
+    const response = await controller.createProduct(dto);
+    expect(response).toBeDefined();
+    expect(response.type).toBe('success');
+    expect(response.status).toBe(201);
+    expect(response.data).toBeDefined();
+    expect(response.data.id).toBe('new-generated-uuid');
+    expect(response.data.name).toBe(dto.name);
+    expect(response.data.description).toBe(dto.description);
+    expect(response.data.price).toBe(dto.price);
     expect(mockProductsService.create).toHaveBeenCalledWith(dto);
   });
 });

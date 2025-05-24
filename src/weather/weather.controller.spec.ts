@@ -65,17 +65,19 @@ describe('WeatherController', () => {
       expect(result.data).toEqual(mockWeatherData);
       expect(result.timestamp).toBeInstanceOf(Date);
       expect(mockWeatherService.getWeatherByCity).toHaveBeenCalledWith('Roma', 3);
-    });
-
-    it('should handle errors correctly', async () => {
-      const result = await controller.getWeather({ city: 'error', days: 3 });
-
-      expect(result).toBeDefined();
-      expect(result.type).toBe('error');
-      expect(result.status).toBe(500);
-      expect(result.message).toBe('City not found');
-      expect(result.timestamp).toBeInstanceOf(Date);
-      expect(result.data).toBeUndefined();
+    });    it('should handle errors correctly', async () => {
+      try {
+        await controller.getWeather({ city: 'error', days: 3 });
+        fail('Expected error to be thrown');
+      } catch (error) {
+        expect(error).toBeDefined();
+        expect(error.response).toBeDefined();
+        expect(error.response.type).toBe('error');
+        expect(error.response.status).toBe(500);
+        expect(error.response.message).toBe('City not found');
+        expect(error.response.timestamp).toBeInstanceOf(Date);
+        expect(error.response.data).toBeUndefined();
+      }
     });
 
     it('should work with optional days parameter', async () => {
