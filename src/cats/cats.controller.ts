@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Inject, Param, Post, Query } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { CreateCatDto } from './dtos/create-cat.dto';
 import { Cat } from './entities/cat.entity';
 import { ICatsService } from './interfaces/cat-service.interface';
 
+@ApiExcludeController()
 @Controller('cats')
 export class CatsController {
     constructor(
