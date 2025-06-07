@@ -31,51 +31,11 @@ describe('ProductsService', () => {
   const mockSupabaseService = {
     getClient: jest.fn(() => mockSupabaseClient),
   };
+
   const mockIdGeneratorService = {
     generateId: jest.fn().mockReturnValue(mockUuid),
     validateId: jest.fn().mockReturnValue(true),
-  };
-
-  // Helper function to create Supabase mock chains
-  const createMockChain = (finalResult: any) => {
-    return {
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue(finalResult)
-        })
-      })
-    };
-  };
-
-  const createMockInsertChain = (finalResult: any) => {
-    return {
-      insert: jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue(finalResult)
-        })
-      })
-    };
-  };
-
-  const createMockUpdateChain = (finalResult: any) => {
-    return {
-      update: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          select: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue(finalResult)
-          })
-        })
-      })
-    };
-  };
-
-  const createMockDeleteChain = (finalResult: any) => {
-    return {
-      delete: jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue(finalResult)
-      })
-    };
-  };beforeEach(async () => {
+  };  beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductsService,
@@ -96,24 +56,6 @@ describe('ProductsService', () => {
 
     // Reset all mocks before each test
     jest.clearAllMocks();
-    
-    // Reset all Supabase client mock implementations to ensure clean state
-    mockSupabaseClient.from.mockReset();
-    mockSupabaseClient.select.mockReset();
-    mockSupabaseClient.insert.mockReset();
-    mockSupabaseClient.update.mockReset();
-    mockSupabaseClient.delete.mockReset();
-    mockSupabaseClient.eq.mockReset();
-    mockSupabaseClient.single.mockReset();
-    
-    // Restore default behavior for non-chained methods
-    mockSupabaseClient.from.mockReturnValue(mockSupabaseClient);
-    mockSupabaseClient.select.mockReturnValue(mockSupabaseClient);
-    mockSupabaseClient.insert.mockReturnValue(mockSupabaseClient);
-    mockSupabaseClient.update.mockReturnValue(mockSupabaseClient);
-    mockSupabaseClient.delete.mockReturnValue(mockSupabaseClient);
-    mockSupabaseClient.eq.mockReturnValue(mockSupabaseClient);
-    
     mockIdGeneratorService.validateId.mockReturnValue(true);
   });
 
@@ -314,7 +256,7 @@ describe('ProductsService', () => {
       await expect(service.delete(mockUuid)).rejects.toThrow('Database error: Delete failed');
     });
   });
-
+  
   describe('update', () => {
     const updateProductDto: UpdateProductDto = {
       name: 'Updated Product',

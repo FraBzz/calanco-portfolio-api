@@ -1,10 +1,9 @@
 import { IsString, IsOptional, IsNumber, IsPositive } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class UpdateProductDto {
-  @ApiProperty({
+export class UpdateProductDto {  @ApiProperty({
     description: 'Product name',
-    example: 'Tastiera Gaming RGB',
+    example: 'RGB Gaming Keyboard',
     required: false
   })
   @IsOptional()
@@ -13,7 +12,7 @@ export class UpdateProductDto {
 
   @ApiProperty({
     description: 'Product description',
-    example: 'Tastiera meccanica con illuminazione RGB personalizzabile',
+    example: 'Mechanical keyboard with customizable RGB lighting',
     required: false
   })
   @IsOptional()
