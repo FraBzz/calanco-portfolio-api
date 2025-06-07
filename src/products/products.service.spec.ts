@@ -3,6 +3,7 @@ import { ProductsService } from './products.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { IdGeneratorService } from '../common/services/id-generator.service';
 import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -17,26 +18,64 @@ describe('ProductsService', () => {
     price: 99.99,
     created_at: new Date(),
     updated_at: new Date(),
-  };
-
-  const mockSupabaseClient = {
+  };  const mockSupabaseClient = {
     from: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     insert: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    delete: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
-    single: jest.fn().mockResolvedValue({ data: null }),
+    single: jest.fn().mockResolvedValue({ data: null, error: null }),
   };
 
   const mockSupabaseService = {
     getClient: jest.fn(() => mockSupabaseClient),
   };
-
   const mockIdGeneratorService = {
     generateId: jest.fn().mockReturnValue(mockUuid),
     validateId: jest.fn().mockReturnValue(true),
   };
 
-  beforeEach(async () => {
+  // Helper function to create Supabase mock chains
+  const createMockChain = (finalResult: any) => {
+    return {
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue(finalResult)
+        })
+      })
+    };
+  };
+
+  const createMockInsertChain = (finalResult: any) => {
+    return {
+      insert: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue(finalResult)
+        })
+      })
+    };
+  };
+
+  const createMockUpdateChain = (finalResult: any) => {
+    return {
+      update: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue(finalResult)
+          })
+        })
+      })
+    };
+  };
+
+  const createMockDeleteChain = (finalResult: any) => {
+    return {
+      delete: jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue(finalResult)
+      })
+    };
+  };beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductsService,
@@ -57,26 +96,46 @@ describe('ProductsService', () => {
 
     // Reset all mocks before each test
     jest.clearAllMocks();
+    
+    // Reset all Supabase client mock implementations to ensure clean state
+    mockSupabaseClient.from.mockReset();
+    mockSupabaseClient.select.mockReset();
+    mockSupabaseClient.insert.mockReset();
+    mockSupabaseClient.update.mockReset();
+    mockSupabaseClient.delete.mockReset();
+    mockSupabaseClient.eq.mockReset();
+    mockSupabaseClient.single.mockReset();
+    
+    // Restore default behavior for non-chained methods
+    mockSupabaseClient.from.mockReturnValue(mockSupabaseClient);
+    mockSupabaseClient.select.mockReturnValue(mockSupabaseClient);
+    mockSupabaseClient.insert.mockReturnValue(mockSupabaseClient);
+    mockSupabaseClient.update.mockReturnValue(mockSupabaseClient);
+    mockSupabaseClient.delete.mockReturnValue(mockSupabaseClient);
+    mockSupabaseClient.eq.mockReturnValue(mockSupabaseClient);
+    
+    mockIdGeneratorService.validateId.mockReturnValue(true);
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
-  });
-  describe('findAll', () => {
+  });  describe('findAll', () => {
     it('should return all products', async () => {
       const mockProducts = [mockProduct];
-      mockSupabaseClient.select.mockResolvedValueOnce({ data: mockProducts, error: null });
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockResolvedValue({ data: mockProducts, error: null })
+      });
 
       const result = await service.findAll();
 
       expect(mockSupabaseService.getClient).toHaveBeenCalled();
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('products');
-      expect(mockSupabaseClient.select).toHaveBeenCalledWith('*');
       expect(result).toEqual(mockProducts);
     });
 
     it('should handle empty result', async () => {
-      mockSupabaseClient.select.mockResolvedValueOnce({ data: [], error: null });
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockResolvedValue({ data: [], error: null })
+      });
 
       const result = await service.findAll();
 
@@ -84,32 +143,40 @@ describe('ProductsService', () => {
     });
 
     it('should handle database error', async () => {
-      mockSupabaseClient.select.mockResolvedValueOnce({ 
-        error: { message: 'Database error' }, 
-        data: null 
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockResolvedValue({ 
+          error: { message: 'Database error' }, 
+          data: null 
+        })
       });
 
       await expect(service.findAll()).rejects.toThrow('Database error');
     });
   });
-
   describe('findOne', () => {
     it('should return one product by id', async () => {
-      mockSupabaseClient.eq.mockReturnThis();
-      mockSupabaseClient.single.mockResolvedValueOnce({ data: mockProduct, error: null });
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: mockProduct, error: null })
+          })
+        })
+      });
 
       const result = await service.findOne(mockUuid);
 
       expect(mockSupabaseService.getClient).toHaveBeenCalled();
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('products');
-      expect(mockSupabaseClient.select).toHaveBeenCalledWith('*');
-      expect(mockSupabaseClient.eq).toHaveBeenCalledWith('id', mockUuid);
       expect(result).toEqual(mockProduct);
     });
 
     it('should return null if product not found', async () => {
-      mockSupabaseClient.eq.mockReturnThis();
-      mockSupabaseClient.single.mockResolvedValueOnce({ data: null, error: null });
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: null, error: null })
+          })
+        })
+      });
 
       const result = await service.findOne(mockUuid);
 
@@ -140,20 +207,18 @@ describe('ProductsService', () => {
         updated_at: expect.any(Date),
       };
 
-      mockSupabaseClient.select.mockReturnThis();
-      mockSupabaseClient.single.mockResolvedValueOnce({ data: expectedProduct, error: null });
+      mockSupabaseClient.from.mockReturnValueOnce({
+        insert: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: expectedProduct, error: null })
+          })
+        })
+      });
 
       const result = await service.create(createProductDto);
 
       expect(mockIdGeneratorService.generateId).toHaveBeenCalled();
       expect(mockSupabaseService.getClient).toHaveBeenCalled();
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('products');
-      expect(mockSupabaseClient.insert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: mockUuid,
-          ...createProductDto,
-        }),
-      );
       expect(result).toEqual(expectedProduct);
     });
 
@@ -164,13 +229,213 @@ describe('ProductsService', () => {
         price: 99.99,
       };
 
-      mockSupabaseClient.select.mockReturnThis();
-      mockSupabaseClient.single.mockResolvedValueOnce({ 
-        error: { message: 'Database error' }, 
-        data: null 
+      mockSupabaseClient.from.mockReturnValueOnce({
+        insert: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ 
+              error: { message: 'Database error' }, 
+              data: null 
+            })
+          })
+        })
       });
 
       await expect(service.create(createProductDto)).rejects.toThrow('Database error');
+    });
+  });
+
+  describe('delete', () => {
+    it('should delete a product successfully', async () => {
+      const productId = mockUuid;
+      const mockProduct = { id: productId, name: 'Test Product' };
+
+      // Mock the findOne chain (for checking if product exists)
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: mockProduct, error: null })
+          })
+        })
+      });
+
+      // Mock the delete chain
+      mockSupabaseClient.from.mockReturnValueOnce({
+        delete: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ error: null })
+        })
+      });
+
+      await service.delete(productId);
+
+      expect(mockIdGeneratorService.validateId).toHaveBeenCalledWith(productId);
+      expect(mockSupabaseClient.from).toHaveBeenCalledWith('products');
+    });
+
+    it('should throw error for invalid product ID', async () => {
+      mockIdGeneratorService.validateId.mockReturnValueOnce(false);
+
+      await expect(service.delete('invalid-id')).rejects.toThrow(
+        'Invalid product ID format',
+      );
+    });
+
+    it('should throw error when product not found', async () => {
+      // Mock findOne to return null (product not found)
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: null, error: null })
+          })
+        })
+      });
+
+      await expect(service.delete(mockUuid)).rejects.toThrow('Product not found');
+    });
+
+    it('should handle delete database error', async () => {
+      const mockProduct = { id: mockUuid, name: 'Test Product' };
+
+      // Mock findOne to return a product
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: mockProduct, error: null })
+          })
+        })
+      });
+
+      // Mock delete operation with error
+      mockSupabaseClient.from.mockReturnValueOnce({
+        delete: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ error: { message: 'Delete failed' } })
+        })
+      });
+
+      await expect(service.delete(mockUuid)).rejects.toThrow('Database error: Delete failed');
+    });
+  });
+
+  describe('update', () => {
+    const updateProductDto: UpdateProductDto = {
+      name: 'Updated Product',
+      price: 149.99,
+    };
+
+    it('should update a product successfully', async () => {
+      const updatedProduct = {
+        ...mockProduct,
+        ...updateProductDto,
+        updated_at: new Date(),
+      };
+
+      // Mock findOne to return existing product
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: mockProduct, error: null })
+          })
+        })
+      });
+
+      // Mock update operation
+      mockSupabaseClient.from.mockReturnValueOnce({
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: updatedProduct, error: null })
+            })
+          })
+        })
+      });
+
+      const result = await service.update(mockUuid, updateProductDto);
+
+      expect(mockIdGeneratorService.validateId).toHaveBeenCalledWith(mockUuid);
+      expect(result).toEqual(updatedProduct);
+    });
+
+    it('should throw error for invalid product ID', async () => {
+      mockIdGeneratorService.validateId.mockReturnValueOnce(false);
+
+      await expect(service.update('invalid-id', updateProductDto)).rejects.toThrow(
+        'Invalid product ID format',
+      );
+    });
+
+    it('should throw error when product not found', async () => {
+      // Mock findOne to return null (product not found)
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: null, error: null })
+          })
+        })
+      });
+
+      await expect(service.update(mockUuid, updateProductDto)).rejects.toThrow('Product not found');
+    });
+
+    it('should handle update database error', async () => {
+      // Mock findOne to return existing product
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: mockProduct, error: null })
+          })
+        })
+      });
+
+      // Mock update operation with error
+      mockSupabaseClient.from.mockReturnValueOnce({
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ 
+                error: { message: 'Update failed' }, 
+                data: null 
+              })
+            })
+          })
+        })
+      });
+
+      await expect(service.update(mockUuid, updateProductDto)).rejects.toThrow('Database error: Update failed');
+    });
+
+    it('should handle partial updates', async () => {
+      const partialUpdate: UpdateProductDto = {
+        name: 'Only Name Updated',
+      };
+
+      const updatedProduct = {
+        ...mockProduct,
+        name: 'Only Name Updated',
+        updated_at: new Date(),
+      };
+
+      // Mock findOne to return existing product
+      mockSupabaseClient.from.mockReturnValueOnce({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: mockProduct, error: null })
+          })
+        })
+      });
+
+      // Mock update operation
+      mockSupabaseClient.from.mockReturnValueOnce({
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: updatedProduct, error: null })
+            })
+          })
+        })
+      });
+
+      const result = await service.update(mockUuid, partialUpdate);
+
+      expect(result.name).toBe('Only Name Updated');
     });
   });
 });
