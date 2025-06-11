@@ -22,12 +22,12 @@ async sendToOwner({ name, email, message }: { name: string; email: string; messa
     const result = await this.resend.emails.send({
       from: 'Calanco Contact <noreply@calanco.dev>',
       to: 'francesca.bozzoli@calanco.dev',
-      subject: '📬 Nuovo messaggio dal sito',
+      subject: '📬 New message from website',
       
-      // Versione plain text (fallback)
-      text: `Hai ricevuto un messaggio da ${name} <${email}>:\n\n${message}`,
+      // Plain text version (fallback)
+      text: `You received a message from ${name} <${email}>:\n\n${message}`,
       
-      // // Versione HTML con il template
+      // // HTML version with template
       // html: generateOwnerNotificationEmail({
       //   senderName: name,
       //   senderEmail: email,
@@ -48,12 +48,12 @@ async sendToUser({ name, email }: { name: string; email: string }): Promise<any>
     const result = await this.resend.emails.send({
       from: 'Francesca Bozzoli - Calanco <noreply@calanco.dev>',
       to: email,
-      subject: 'Grazie per il tuo contatto',
+      subject: 'Thank you for your message!',
       
-      // Versione plain text (fallback)
-      text: `Ciao ${name},\n\ngrazie per il tuo messaggio! Ti risponderò appena possibile.\n\n— Francesca di Calanco.dev`,
+      // Plain text version (fallback)
+      text: `Hi ${name},\n\nThank you for your message! I will get back to you as soon as possible.\n\n— Francesca from Calanco.dev`,
       
-      // // Versione HTML con il template
+      // // HTML version with template
       // html: generateConfirmationEmail(name),
     });
     
