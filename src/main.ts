@@ -8,7 +8,6 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
   console.log('WEATHER_API_KEY:', configService.get('WEATHER_API_KEY'));
-
   // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('Calanco Portfolio API')
@@ -18,6 +17,7 @@ async function bootstrap() {
     .addTag('Weather', 'Weather forecast and current conditions')
     .addTag('Cart', 'Shopping cart management')
     .addTag('orders', 'Order processing and retrieval')
+    .addTag('Contact', 'Contact form submission and communication')
     .build();
   
   const document = SwaggerModule.createDocument(app, config);
